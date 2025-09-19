@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jumia Price Tracker</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="container">
+        <h2>Jumia Price Tracker</h2>
+
+        <p><strong>Current Price:</strong> <span id="price">Loading...</span></p>
+
+        <label for="target">Target Price (Ksh):</label>
+        <input type="number" id="target" placeholder="Enter your target price" />
+        <button id="saveTarget">Save Target</button>
+
+        <p id="status"></p>
+
+        <button id="refresh">Refresh Price</button>
+
+        <hr />
+
+        <div class="summary">
+            <h3>Tracked Product</h3>
+            <p><strong>Title:</strong> <span id="productTitle">No product detected</span></p>
+            <p><strong>Last Price:</strong> <span id="lastPrice">N/A</span></p>
+            <p><strong>Target Price:</strong> <span id="targetPrice">N/A</span></p>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
