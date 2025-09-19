@@ -20,47 +20,64 @@ document.addEventListener("DOMContentLoaded", () => {
                 lastPriceEl.textContent = "N/A";
                 return;
             }
-            chrome.tabs.sendMessage(
-                tabs[0].id, { action: "getProductData" },
-                (response) => {
+            const tabId = tabs[0].id;
+
+            // Programmatically inject content.js if not already injected
+            chrome.scripting.executeScript({
+                    target: { tabId: tabId },
+                    files: ['content.js']
+                },
+                () => {
                     if (chrome.runtime.lastError) {
-                        console.error("Error sending message to content script:", chrome.runtime.lastError.message);
-                        priceEl.textContent = "Not available";
-                        titleEl.textContent = "No product detected";
-                        lastPriceEl.textContent = "N/A";
-                        statusEl.textContent = "Please navigate to a Jumia product page.";
-                        return;
-                    }
-                    if (!response) {
-                        console.warn("No response from content script");
-                        priceEl.textContent = "Not available";
-                        titleEl.textContent = "No product detected";
-                        lastPriceEl.textContent = "N/A";
-                        statusEl.textContent = "No product data available.";
+                        console.error("Script injection failed: ", chrome.runtime.lastError.message);
+                        statusEl.textContent = "Failed to inject content script.";
                         return;
                     }
 
-                    console.log("Received product data:", response);
-                    statusEl.textContent = "";
+                    // After injection, send message to content script
+                    chrome.tabs.sendMessage(
+                        tabId, { action: "getProductData" },
+                        (response) => {
+                            if (chrome.runtime.lastError) {
+                                console.error("Error sending message to content script:", chrome.runtime.lastError.message);
+                                priceEl.textContent = "Not available";
+                                titleEl.textContent = "No product detected";
+                                lastPriceEl.textContent = "N/A";
+                                statusEl.textContent = "Please navigate to a Jumia product page.";
+                                return;
+                            }
+                            if (!response) {
+                                console.warn("No response from content script");
+                                priceEl.textContent = "Not available";
+                                titleEl.textContent = "No product detected";
+                                lastPriceEl.textContent = "N/A";
+                                statusEl.textContent = "No product data available.";
+                                return;
+                            }
 
-                    // Update UI
-                    priceEl.textContent =
-                        response.price && response.price !== "N/A" ?
-                        `KSh ${response.price}` :
-                        "N/A";
-                    titleEl.textContent = response.title || "No product detected";
-                    lastPriceEl.textContent =
-                        response.price && response.price !== "N/A" ?
-                        `KSh ${response.price}` :
-                        "N/A";
+                            console.log("Received product data:", response);
+                            statusEl.textContent = "";
 
-                    // Save last scraped data
-                    chrome.storage.local.set({
-                        lastTitle: response.title,
-                        lastPrice: response.price
-                    }, () => {
-                        console.log("Saved lastTitle and lastPrice to storage");
-                    });
+                            // Update UI
+                            priceEl.textContent =
+                                response.price && response.price !== "N/A" ?
+                                `KSh ${response.price}` :
+                                "N/A";
+                            titleEl.textContent = response.title || "No product detected";
+                            lastPriceEl.textContent =
+                                response.price && response.price !== "N/A" ?
+                                `KSh ${response.price}` :
+                                "N/A";
+
+                            // Save last scraped data
+                            chrome.storage.local.set({
+                                lastTitle: response.title,
+                                lastPrice: response.price
+                            }, () => {
+                                console.log("Saved lastTitle and lastPrice to storage");
+                            });
+                        }
+                    );
                 }
             );
         });
@@ -92,6 +109,30 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("Refresh button clicked");
         fetchProductData();
     });
+
+    // Manual trigger for price check notification
+    const notifyBtn = document.createElement('button');
+    notifyBtn.textContent = 'Check Price Now';
+    notifyBtn.style.marginTop = '10px';
+    notifyBtn.style.padding = '10px';
+    notifyBtn.style.border = 'none';
+    notifyBtn.style.borderRadius = '8px';
+    notifyBtn.style.background = '#ff9900';
+    notifyBtn.style.color = 'white';
+    notifyBtn.style.cursor = 'pointer';
+    notifyBtn.addEventListener('click', () => {
+        chrome.runtime.sendMessage({ action: 'manualPriceCheck' }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error('Error sending manualPriceCheck message:', chrome.runtime.lastError.message);
+                statusEl.textContent = 'Failed to trigger price check.';
+                return;
+            }
+            console.log('Manual price check response:', response);
+            statusEl.textContent = response.status || 'Price check triggered.';
+            setTimeout(() => (statusEl.textContent = ''), 3000);
+        });
+    });
+    document.querySelector('.container').appendChild(notifyBtn);
 
     // Load saved product data
     chrome.storage.local.get(["lastTitle", "lastPrice"], (data) => {

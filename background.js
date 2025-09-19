@@ -3,10 +3,16 @@
 // This background service worker handles periodic price checking and notifications,
 // listens for messages from popup or content scripts, and manages background tasks.
 
-const CHECK_INTERVAL_MINUTES = 15; // Check every 15 minutes
+let CHECK_INTERVAL_MINUTES = 15; // Default check interval in minutes
 
-// Start the periodic alarm for price checking
-chrome.alarms.create('priceCheckAlarm', { periodInMinutes: CHECK_INTERVAL_MINUTES });
+// Load check interval from storage or use default
+chrome.storage.local.get(['checkIntervalMinutes'], (data) => {
+    if (data.checkIntervalMinutes && Number.isInteger(data.checkIntervalMinutes) && data.checkIntervalMinutes > 0) {
+        CHECK_INTERVAL_MINUTES = data.checkIntervalMinutes;
+    }
+    // Start the periodic alarm for price checking
+    chrome.alarms.create('priceCheckAlarm', { periodInMinutes: CHECK_INTERVAL_MINUTES });
+});
 
 // Listen for the alarm to trigger price checks
 chrome.alarms.onAlarm.addListener((alarm) => {
