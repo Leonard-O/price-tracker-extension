@@ -110,16 +110,16 @@ document.addEventListener("DOMContentLoaded", () => {
         fetchProductData();
     });
 
-    // Manual trigger for price check notification
+    // Manual trigger for price check notification - always visible
     const notifyBtn = document.createElement('button');
     notifyBtn.textContent = 'Check Price Now';
-    notifyBtn.style.marginTop = '10px';
     notifyBtn.style.padding = '10px';
     notifyBtn.style.border = 'none';
     notifyBtn.style.borderRadius = '8px';
     notifyBtn.style.background = '#ff9900';
     notifyBtn.style.color = 'white';
     notifyBtn.style.cursor = 'pointer';
+    notifyBtn.style.marginTop = '10px';
     notifyBtn.addEventListener('click', () => {
         chrome.runtime.sendMessage({ action: 'manualPriceCheck' }, (response) => {
             if (chrome.runtime.lastError) {
