@@ -69,12 +69,31 @@ document.addEventListener("DOMContentLoaded", () => {
                                 `KSh ${response.price}` :
                                 "N/A";
 
+                            // Update additional product info if available
+                            if (response.originalPrice && response.originalPrice !== "N/A") {
+                                const originalPriceEl = document.getElementById("originalPrice");
+                                if (originalPriceEl) {
+                                    originalPriceEl.textContent = `KSh ${response.originalPrice}`;
+                                }
+                            }
+
+                            if (response.imageUrl) {
+                                const productImageEl = document.getElementById("productImage");
+                                if (productImageEl) {
+                                    productImageEl.src = response.imageUrl;
+                                    productImageEl.style.display = "block";
+                                }
+                            }
+
                             // Save last scraped data
                             chrome.storage.local.set({
                                 lastTitle: response.title,
-                                lastPrice: response.price
+                                lastPrice: response.price,
+                                lastImageUrl: response.imageUrl,
+                                lastProductUrl: response.productUrl,
+                                lastOriginalPrice: response.originalPrice
                             }, () => {
-                                console.log("Saved lastTitle and lastPrice to storage");
+                                console.log("Saved enhanced product data to storage");
                             });
                         }
                     );
@@ -135,9 +154,22 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelector('.container').appendChild(notifyBtn);
 
     // Load saved product data
-    chrome.storage.local.get(["lastTitle", "lastPrice"], (data) => {
+    chrome.storage.local.get(["lastTitle", "lastPrice", "lastOriginalPrice", "lastImageUrl"], (data) => {
         if (data.lastTitle) titleEl.textContent = data.lastTitle;
         if (data.lastPrice) lastPriceEl.textContent = `KSh ${data.lastPrice}`;
+        if (data.lastOriginalPrice && data.lastOriginalPrice !== "N/A") {
+            const originalPriceEl = document.getElementById("originalPrice");
+            if (originalPriceEl) {
+                originalPriceEl.textContent = `KSh ${data.lastOriginalPrice}`;
+            }
+        }
+        if (data.lastImageUrl) {
+            const productImageEl = document.getElementById("productImage");
+            if (productImageEl) {
+                productImageEl.src = data.lastImageUrl;
+                productImageEl.style.display = "block";
+            }
+        }
     });
 
     // Initial fetch

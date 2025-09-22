@@ -38,7 +38,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function checkPricesAndNotify() {
     try {
         // Get stored target price and last known product info
-        const data = await chrome.storage.local.get(['targetPrice', 'lastTitle', 'lastPrice']);
+        const data = await chrome.storage.local.get(['targetPrice', 'lastTitle', 'lastPrice', 'priceHistory']);
         if (!data.targetPrice || !data.lastTitle) {
             console.log('No target price or product title stored, skipping check');
             return;
@@ -61,13 +61,20 @@ async function checkPricesAndNotify() {
                 // This function runs in the context of the page
                 const titleElement = document.querySelector('h1.-fs20.-pts.-pbxs');
                 const priceElement = document.querySelector('span.-b.-ubpt.-tal.-fs24.-prxs');
+                const imageElement = document.querySelector('img.-fw.-fh');
+                const originalPriceElement = document.querySelector('span.-tal.-gy5.-lthr.-fs16');
+
                 const title = titleElement ? titleElement.innerText : null;
                 let priceText = priceElement ? priceElement.innerText : null;
                 let price = null;
                 if (priceText) {
                     price = priceText.replace(/[^\d]/g, '');
                 }
-                return { title, price };
+                const imageUrl = imageElement ? imageElement.src : '';
+                const productUrl = window.location.href;
+                let originalPrice = originalPriceElement ? originalPriceElement.innerText.replace(/[^\d]/g, '') : '';
+
+                return { title, price, imageUrl, productUrl, originalPrice };
             }
         });
 
@@ -93,21 +100,74 @@ async function checkPricesAndNotify() {
             return;
         }
 
-        if (currentPriceNum <= targetPriceNum) {
-            // Send notification about price drop
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'icons/icon128.png',
-                title: 'Price Drop Alert!',
-                message: `The price of "${currentData.title}" has dropped to KSh ${currentPriceNum}, which is below your target price of KSh ${targetPriceNum}.`,
-                priority: 2
-            });
+        // Update price history
+        const priceHistory = data.priceHistory || [];
+        const now = new Date().toISOString();
+        priceHistory.push({
+            price: currentPriceNum,
+            timestamp: now,
+            title: currentData.title
+        });
+
+        // Keep only last 10 price points
+        if (priceHistory.length > 10) {
+            priceHistory.splice(0, priceHistory.length - 10);
         }
 
-        // Update stored last price and title
+        let shouldNotify = false;
+        let notificationTitle = 'Price Update';
+        let notificationMessage = '';
+
+        if (currentPriceNum <= targetPriceNum) {
+            shouldNotify = true;
+            notificationTitle = '🎉 Price Drop Alert!';
+            notificationMessage = `Great news! The price of "${currentData.title}" has dropped to KSh ${currentPriceNum}, which is below your target price of KSh ${targetPriceNum}.`;
+
+            if (currentData.originalPrice && currentData.originalPrice !== "N/A") {
+                const originalPriceNum = parseInt(currentData.originalPrice, 10);
+                const savings = originalPriceNum - currentPriceNum;
+                if (savings > 0) {
+                    notificationMessage += `\n💰 You save KSh ${savings}!`;
+                }
+            }
+        } else if (data.lastPrice && data.lastPrice !== "N/A") {
+            // Check if price increased significantly
+            const lastPriceNum = parseInt(data.lastPrice, 10);
+            const priceIncrease = currentPriceNum - lastPriceNum;
+            if (priceIncrease > 500) { // Notify if price increased by more than KSh 500
+                shouldNotify = true;
+                notificationTitle = '⚠️ Price Increase Alert';
+                notificationMessage = `The price of "${currentData.title}" has increased to KSh ${currentPriceNum} (up KSh ${priceIncrease} from KSh ${lastPriceNum}).`;
+            }
+        }
+
+        if (shouldNotify) {
+            // Create rich notification with image
+            const notificationOptions = {
+                type: 'image',
+                iconUrl: 'icons/icon128.png',
+                title: notificationTitle,
+                message: notificationMessage,
+                priority: 2,
+                imageUrl: currentData.imageUrl || 'icons/icon128.png'
+            };
+
+            // Add click action to open product page
+            if (currentData.productUrl) {
+                notificationOptions.buttons = [{ title: 'View Product' }];
+                notificationOptions.data = { productUrl: currentData.productUrl };
+            }
+
+            chrome.notifications.create('priceAlert', notificationOptions);
+        }
+
+        // Update stored data
         await chrome.storage.local.set({
             lastTitle: currentData.title,
-            lastPrice: currentData.price
+            lastPrice: currentData.price,
+            lastImageUrl: currentData.imageUrl,
+            lastProductUrl: currentData.productUrl,
+            priceHistory: priceHistory
         });
 
         console.log('Price check completed and storage updated');
@@ -115,3 +175,25 @@ async function checkPricesAndNotify() {
         console.error('Error during price check:', error);
     }
 }
+
+// Handle notification click
+chrome.notifications.onClicked.addListener((notificationId) => {
+    if (notificationId === 'priceAlert') {
+        chrome.storage.local.get(['lastProductUrl'], (data) => {
+            if (data.lastProductUrl) {
+                chrome.tabs.create({ url: data.lastProductUrl });
+            }
+        });
+    }
+});
+
+// Handle notification button click
+chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
+    if (notificationId === 'priceAlert' && buttonIndex === 0) {
+        chrome.storage.local.get(['lastProductUrl'], (data) => {
+            if (data.lastProductUrl) {
+                chrome.tabs.create({ url: data.lastProductUrl });
+            }
+        });
+    }
+});

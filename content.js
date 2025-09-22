@@ -14,11 +14,25 @@ function getProductData() {
         price = priceText.replace(/[^\d]/g, ""); // keep only numbers
     }
 
-    console.log("Scraped product data:", { title, price });
+    // Grab product image
+    let imageElement = document.querySelector("img.-fw.-fh");
+    let imageUrl = imageElement ? imageElement.src : "";
+
+    // Grab product page URL
+    let productUrl = window.location.href;
+
+    // Grab additional product details if available
+    let originalPriceElement = document.querySelector("span.-tal.-gy5.-lthr.-fs16");
+    let originalPrice = originalPriceElement ? originalPriceElement.innerText.replace(/[^\d]/g, "") : "";
+
+    console.log("Scraped enhanced product data:", { title, price, imageUrl, productUrl, originalPrice });
 
     return {
         title: title.trim(),
         price: price && price !== "" ? price : "N/A",
+        imageUrl: imageUrl,
+        productUrl: productUrl,
+        originalPrice: originalPrice && originalPrice !== "" ? originalPrice : "N/A",
     };
 }
 
